@@ -7,7 +7,7 @@ Sistema IoT para el monitoreo de temperatura y humedad en huertos utilizando AWS
 Planti-Care permite recopilar datos ambientales mediante sensores conectados a un ESP32, enviarlos a la nube y visualizarlos en una aplicación web de forma sencilla e intuitiva.
 
 
-🌐 Aplicación Web
+# 🌐 Aplicación Web
 
 **Enlace de acceso:**
 
@@ -37,7 +37,7 @@ ESP32 → AWS IoT Core → AWS Lambda → DynamoDB
 - ESP32-S3
 - Sensores (DHT22)
 
-👥 Integrantes
+# 👥 Integrantes
 
 - Mariana Garcia
 - Jessica Diaz
