@@ -11,7 +11,7 @@ Planti-Care permite recopilar datos ambientales mediante sensores conectados a u
 
 **Enlace de acceso:**
 
-[Agregar URL de la aplicación]
+[https://huerto-monitor.s3.us-east-1.amazonaws.com/sensor2.html]
 
 
 # Arquitectura
