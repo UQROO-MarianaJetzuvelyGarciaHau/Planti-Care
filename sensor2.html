@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor HuerIoT - Planta Inteligente</title>
+    <style>
+        :root {
+            --primary-green: #2ecc71;
+            --dark-green: #27ae60;
+            --background-light: #e8f5e9;
+            --white: #ffffff;
+            --text-dark: #2c3e50;
+            --text-light: #7f8c8d;
+            --temp-orange: #e67e22;
+            --hum-blue: #3498db;
+            --warning-red: #e74c3c;
+            --sad-purple: #8c7ae6; /* Color para estado triste */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-light);
+            color: var(--text-dark);
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+        }
+
+        .main-wrapper {
+            display: flex;
+            background-color: var(--white);
+            width: 900px; height: 600px;
+            border-radius: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .data-panel {
+            flex: 1; padding: 50px;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        header h1 { color: var(--dark-green); margin: 0 0 10px 0; font-size: 2em; }
+        
+        .status-bar { 
+            display: inline-block; padding: 5px 15px; 
+            border-radius: 20px; font-size: 0.85em; font-weight: bold;
+            transition: all 0.5s ease;
+        }
+
+        .sensors-container { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin: 40px 0; }
+        
+        .sensor-card {
+            background-color: var(--white); padding: 25px; border-radius: 20px; 
+            border: 1px solid #eee; position: relative; transition: all 0.3s ease;
+        }
+        .sensor-card::before { content: ''; position: absolute; top: 25px; left: 0; width: 5px; height: 40px; border-radius: 0 5px 5px 0; }
+        .temp-card::before { background-color: var(--temp-orange); }
+        .hum-card::before { background-color: var(--hum-blue); }
+
+        .sensor-label { font-size: 0.9em; color: var(--text-light); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .sensor-value { font-size: 3.5em; font-weight: 800; margin: 0; transition: color 0.3s; }
+        .sensor-unit { font-size: 1.2em; margin-left: 5px; color: var(--text-light); }
+
+        /* Clases de Alerta */
+        .alert-card { border-color: var(--warning-red) !important; background-color: #fff5f5 !important; }
+        .alert-value { color: var(--warning-red) !important; }
+
+        .meta-info { font-size: 0.85em; color: var(--text-light); border-top: 1px solid #eee; padding-top: 20px; }
+
+        /* PANEL DE LA PLANTA */
+        .plant-panel {
+            width: 400px;
+            background-color: var(--primary-green);
+            display: flex; justify-content: center; align-items: center;
+            position: relative;
+            transition: background-color 0.8s ease;
+        }
+
+        /* Cambia el color del panel a morado cuando tiene la clase sad-state */
+        .plant-panel.sad-state {
+            background-color: var(--sad-purple) !important;
+        }
+
+        .plant-circle {
+            width: 320px; height: 320px;
+            background-color: var(--white);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 10px solid #a1e6b9;
+            transition: border-color 0.8s ease;
+        }
+        
+        .sad-state .plant-circle { border-color: #c0b4f0; }
+
+        .plant-icon { width: 180px; height: 180px; }
+        .plant-happy { display: block; }
+        .plant-sad { display: none; }
+
+        .sad-state .plant-happy { display: none; }
+        .sad-state .plant-sad { display: block; }
+
+        .refresh-btn {
+            position: absolute; bottom: 30px; right: 30px;
+            background: rgba(255,255,255,0.3); border: none; color: var(--white);
+            padding: 10px 20px; border-radius: 20px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <div class="data-panel">
+            <header>
+                <h1>Mi HuerIoT</h1>
+                <div id="plant-status-text" class="status-bar">Conectando...</div>
+            </header>
+
+            <div class="sensors-container">
+                <div id="temp-card" class="sensor-card temp-card">
+                    <div class="sensor-label">Temp. Aire</div>
+                    <div class="sensor-value-wrapper">
+                        <span id="temp-value" class="sensor-value">--</span>
+                        <span class="sensor-unit">°C</span>
+                    </div>
+                </div>
+
+                <div id="hum-card" class="sensor-card hum-card">
+                    <div class="sensor-label">Humedad Suelo</div>
+                    <div class="sensor-value-wrapper">
+                        <span id="hum-value" class="sensor-value">--</span>
+                        <span class="sensor-unit">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <p><strong>Dispositivo:</strong> <span id="device-id">--</span></p>
+                <p><strong>Última actualización:</strong> <span id="last-update">--</span></p>
+            </div>
+        </div>
+
+        <div id="plant-panel" class="plant-panel">
+            <div class="plant-circle">
+                <svg id="svg-happy" class="plant-icon plant-happy" viewBox="0 0 64 64">
+                    <path d="M32 62c-2.2 0-4-1.8-4-4V32c0-2.2 1.8-4 4-4s4 1.8 4 4v26c0 2.2-1.8 4-4 4z" fill="#795548"/>
+                    <path d="M52 24c0 11-9 20-20 20s-20-9-20-20S21 4 32 4s20 9 20 20z" fill="#2ecc71"/>
+                    <path d="M32 10a14 14 0 0 0-14 14c0 7.7 6.3 14 14 14s14-6.3 14-14c0-7.7-6.3-14-14-14z" fill="#a1e6b9"/>
+                    <circle cx="25" cy="22" r="3" fill="#fff"/><circle cx="39" cy="22" r="3" fill="#fff"/>
+                    <path d="M26 30s2 3 6 3 6-3 6-3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <svg id="svg-sad" class="plant-icon plant-sad" viewBox="0 0 64 64">
+                    <path d="M32 62c-2.2 0-4-1.8-4-4V32c0-2.2 1.8-4 4-4s4 1.8 4 4v26c0 2.2-1.8 4-4 4z" fill="#795548"/>
+                    <path d="M52 30c0 10-9 18-20 18s-20-8-20-18 9-18 20-18 20 8 20 18z" fill="#57606f"/> 
+                    <path d="M32 18a12 12 0 0 0-12 12c0 6.6 5.4 12 12 12s12-5.4 12-12-5.4-12-12-12z" fill="#9da4b0"/> 
+                    <path d="M22 25l6-4m0 4l-6-4M36 25l6-4m0 4l-6-4" stroke="#fff" stroke-width="2"/> 
+                    <path d="M26 36s2-6 6-6 6 6 6 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"></path> 
+                </svg>
+            </div>
+            <button class="refresh-btn" onclick="cargarDatos()">Actualizar</button>
+        </div>
+    </div>
+
+    <script>
+        const URL_API = "https://ln8dxy5vij.execute-api.us-east-1.amazonaws.com/sensor/datos";
+
+        async function cargarDatos() {
+            try {
+                const response = await fetch(URL_API);
+                let res = await response.json();
+                let data = res.body ? (typeof res.body === 'string' ? JSON.parse(res.body) : res.body) : res;
+
+                if (data && data.length > 0) {
+                    const ultimo = data[data.length - 1];
+                    
+                    // Procesar valores numéricos
+                    const temp = parseFloat(ultimo.temperatura || 0);
+                    const hum = parseFloat(ultimo.humedad_suelo || 0);
+
+                    // Actualizar textos
+                    document.getElementById('temp-value').innerText = temp.toFixed(1);
+                    document.getElementById('hum-value').innerText = Math.round(hum);
+                    document.getElementById('device-id').innerText = ultimo.id_dispositivo || "ESP32";
+                    document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
+
+                    // --- LÓGICA DE COLOR Y ESTADO ---
+                    const panel = document.getElementById('plant-panel');
+                    const statusText = document.getElementById('plant-status-text');
+                    const tCard = document.getElementById('temp-card');
+                    const hCard = document.getElementById('hum-card');
+                    const tVal = document.getElementById('temp-value');
+                    const hVal = document.getElementById('hum-value');
+
+                    // Definimos umbrales: Triste si temp > 28 o humedad < 50
+                    const necesitaAtencion = (temp > 28 || hum < 10);
+
+                    if (necesitaAtencion) {
+                        panel.classList.add('sad-state');
+                        statusText.innerText = "● ESTADO: NECESITA ATENCIÓN";
+                        statusText.style.backgroundColor = "#f8d7da";
+                        statusText.style.color = "#721c24";
+                        
+                        // Resaltar específicamente el sensor que está mal
+                        if(temp > 28) { tCard.classList.add('alert-card'); tVal.classList.add('alert-value'); }
+                        else { tCard.classList.remove('alert-card'); tVal.classList.remove('alert-value'); }
+                        
+                        if(hum < 50) { hCard.classList.add('alert-card'); hVal.classList.add('alert-value'); }
+                        else { hCard.classList.remove('alert-card'); hVal.classList.remove('alert-value'); }
+
+                    } else {
+                        panel.classList.remove('sad-state');
+                        statusText.innerText = "● ESTADO: PLANTA FELIZ";
+                        statusText.style.backgroundColor = "#d4edda";
+                        statusText.style.color = "#155724";
+                        
+                        // Limpiar alertas
+                        tCard.classList.remove('alert-card');
+                        hCard.classList.remove('alert-card');
+                        tVal.classList.remove('alert-value');
+                        hVal.classList.remove('alert-value');
+                    }
+                }
+            } catch (e) {
+                console.error("Error:", e);
+                document.getElementById('plant-status-text').innerText = "ERROR DE CONEXIÓN";
+            }
+        }
+
+        // Iniciar
+        cargarDatos();
+        setInterval(cargarDatos, 30000);
+    </script>
+</body>
+</html>
